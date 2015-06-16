@@ -34,8 +34,8 @@ potencias = {}
 class BluezInquiry:
 
     def __init__(self, dev_id, mac, port):
-        self.addr_nino = "4C:74"  # El prefijo de la MAC de la pulsera.
-	self.addr_nino1 = "4C:74"
+        self.addr_nino = ""  # El prefijo de la MAC de la pulsera.
+        self.addr_nino1 = ""
         self.dev_id = dev_id      # El número del bluetooth (si hay más de uno)
         self.mac = mac
         self.inquiring = False
@@ -94,6 +94,12 @@ class BluezInquiry:
                 indice = i
         return indice
 
+    def checkAddress(self, potencias):
+        for temp in potencias.keys():
+            if(len(potencias[temp])==0):
+                return 0
+        return 1
+
     def optimizar(self, rssi_vect):
         for i in range(10):    # Nos quedamos con X valores
             buffererror = []  # Vaciamos el vector de errores
@@ -125,10 +131,12 @@ class BluezInquiry:
             potencias[addr].append(rssi)
             if len(potencias[addr]) >= tam_vect:
                 rssi_bueno = self.optimizar(potencias[addr])
-                potencias[addr] = []  # Vaciado
+                #potencias[addr] = []  # Vaciado
                 print "[Bluetooth]" + str(addr) + " -> " + str(rssi_bueno)
                 self.sendSocket.sendto(self.mac + " " + str(addr) + " " + str(rssi_bueno), (self.host, self.port))
-                return str(rssi_bueno)
+                if self.checkAddress(potencias)==1:
+                    return potencias
+
         else:
             potencias[addr] = [rssi]
 
@@ -154,10 +162,12 @@ class BluezInquiry:
                 # - 1106.35595941215
                 # print r
                 rssi = float(rssi)
-                if addr[0:5] == self.addr_nino or addr[0:5] == self.addr_nino1:
-                    # Organiza los valores recividos,eliminar errores,
+                #if addr[0:5] == self.addr_nino or addr[0:5] == self.addr_nino1:
+                    # Organiza los valores recibidos,eliminar errores,
                     # y envia un valor RSSI
-                    self.procesamiento(addr, rssi)
+                rssi_bueno = self.procesamiento(addr, rssi)
+                return rssi_bueno
+
 
         elif event == bluez.EVT_INQUIRY_COMPLETE:
             pass

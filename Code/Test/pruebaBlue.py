@@ -7,6 +7,8 @@ def discoverNearBluetoothDevices():
 target_name = ""
 target_address = None
 nearby_devices=discoverNearBluetoothDevices()
+print ("algo " +str(nearby_devices))
+
 for bdaddr in nearby_devices:
     target_name == bluetooth.lookup_name( bdaddr )
     target_address = bdaddr
