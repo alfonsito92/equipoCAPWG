@@ -1,16 +1,14 @@
+from __future__ import print_function
 import RPi.GPIO as GPIO    #Importamos la libreria RPi.GPIO
 import time                #Importamos time para poder usar time.sleep
 import bluetooth
 from BluezInquiry import BluezInquiry
 import sys
 from subprocess import Popen, PIPE
-
-from __future__ import print_function
 import mysql.connector
 from mysql.connector.constants import ClientFlag
-
 import sys
-import time
+import operator
 
 GPIO.setmode(GPIO.BCM)   #Ponemos la Raspberry en modo BCM
 
@@ -29,6 +27,11 @@ posServoBajado = 6
 
 TRIGGER1 = 21
 ECHO1 = 20
+TRIGGER2 = 22
+ECHO2 = 23
+
+pMin = -55
+pMax = -45
 
 #TRIGGER2 = 24
 #ECHO2= 23
@@ -83,7 +86,7 @@ def getDireccionesEntrar():
 	return bb
 
 def getDireccionesSalir():
-	aa = run_query("SELECT MAC FROM parking.Usuarios WHERE Acceso = 'SI' AND dentro = 0")
+	aa = run_query("SELECT MAC FROM parking.Usuarios WHERE Acceso = 'SI' AND dentro = 1")
 	bb = []
 	for i in range (0,len(aa)):
 		tmp = aa[i]
@@ -104,13 +107,13 @@ def regMACEntrada(MAC):
 	#print(day)
 
 	#print("Fecha/Hora: "+datetime+"\n\n")
-    '''
+        '''
 	cc = run_query("SELECT idUsuario FROM parking.Usuarios WHERE MAC='"+MAC+"'")
 	cc = cc[0]
 	idus = str(cc[0])
 	query1 = "INSERT INTO parking.time_table (time, idUsuario) VALUES ('"+datetime+"','"+idus+"');"
 	l = run_query(query1)
-    '''
+        '''
 
 def regMACSalida(MAC):
 	# Registramos como que el vehiculo se encuentra dentro del parking
@@ -122,7 +125,7 @@ def regMACSalida(MAC):
 	#datetime = day+' '+t
 	#print(t)
 	#print(day)
-    '''
+        '''
 	print("Fecha/Hora: "+datetime+"\n\n")
 
 	cc = run_query("SELECT idUsuario FROM parking.Usuarios WHERE MAC='"+MAC+"'")
@@ -130,8 +133,7 @@ def regMACSalida(MAC):
 	idus = str(cc[0])
 	query1 = "INSERT INTO parking.time_table (time, idUsuario) VALUES ('"+datetime+"','"+idus+"');"
 	l = run_query(query1)
-    '''
-
+        '''
 
 def inicializarHCR(trigger, echo):
     GPIO.setup(trigger,GPIO.OUT)  #Configuramos Trigger como salida
@@ -180,7 +182,7 @@ def subirBarrera():
 	print("Subiendo barrera... Espere...")
         servo.ChangeDutyCycle(posServoSubido)
     else :
-        print "Por favor espere a que se baje la barrera y vuelva a intentarlo"
+        print ("Por favor espere a que se baje la barrera y vuelva a intentarlo")
         #bajarBarrera()
 
 def bajarBarrera():
@@ -188,7 +190,7 @@ def bajarBarrera():
 	print("Bajando barrera... Espere...")
         servo.ChangeDutyCycle(posServoBajado)
     else :
-        print "Por favor espere a que la barrera suba del todo"
+        print ("Por favor espere a que la barrera suba del todo")
         subirBarrera()
 
 def scanDevices():
@@ -226,6 +228,17 @@ def ordenar(dispositivos):
     resultado = sorted(dispositivos.items(), key=operator.itemgetter(1), reverse=True)
     return resultado
 
+def checkBarrera(ordenados, permitidas):
+    #print (str(ordenados))
+    for addr in ordenados:
+        #print (str(addr))
+        pot = addr[1]
+        if pot>pMin and  pot<pMax:
+            if addr[0] in permitidas:
+                return (True, addr[0])
+
+    return (False, "")
+
 try:
     inicializarServo(servoPinBCM)
 
@@ -242,29 +255,28 @@ try:
         #distance2 = readHCR(TRIGGER2, ECHO2)
         #if distance1 <dmin and distance2 < dmin:
 	if distance1 <dmin:
-        #print "Vehiculo a menos de " +dmin+ " d1 = "+distance1+" d2 = " +d$
-        #print("Vehiculo a menos de " ,dmin, " d1 = " ,distance1,)
-        dispositivos = optimizar(scanDevices())
-        dispositivosOrdenados = ordenar(dispositivos)
-        #print ("Mac Detectadas "+str(dispositivosOrdenados))
-        permitidas = getDireccionesEntrar()
-        #print ("Mac PERMITIDAS "+str(permitidas))
-        resultado, macEntra= checkBarrera(dispositivosOrdenados, permitidas)
-        #print (str(resultado))
-        if resultado:
-            print ("Detectado permiso entrada MAC: " +macEntra)
-            regMACEntrada(macEntra)
-            subirBarrera()
-            while (readHCR(TRIGGER1, ECHO1)<dmin):
-                continue
+            #print "Vehiculo a menos de " +dmin+ " d1 = "+distance1+" d2 = " +distance2
+	    print("Vehiculo a menos de " ,dmin, " d1 = " ,distance1,)
+            dispositivos = optimizar(scanDevices())
+	    dispositivosOrdenados = ordenar(dispositivos)
+	    print ("Mac Detectadas "+str(dispositivosOrdenados))
+            permitidas = getDireccionesEntrar()
+	    print ("Mac PERMITIDAS para entrar"+str(permitidas))
+            resultado, macEntra= checkBarrera(dispositivosOrdenados, permitidas)
+            print ("Hay alguna que pueda entrar? "+str(resultado))
+            if resultado: 
+                print ("Detectado permiso entrada MAC: " +macEntra)
+		regMACEntrada(macEntra)
+		subirBarrera()
+		while (readHCR(TRIGGER1, ECHO1)<dmin):
+		    continue
+		
+		bajarBarrera() 
 
-            bajarBarrera()
+            else:
+                print ("Ninguna mac detectada tiene permiso para entrar")
 
-        else:
-            print ("Ninguna mac detectada tiene permiso para entrar")
-
-
-    time.sleep(pausa)
+        time.sleep(pausa )
 
 except KeyboardInterrupt:         #Si el usuario pulsa CONTROL+C entonces...
     #servo.stop()                      #Detenemos el servo
