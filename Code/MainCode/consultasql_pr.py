@@ -1,51 +1,51 @@
 #import MySQLdb
-from __future__ import print_function 
-import mysql.connector 
-from mysql.connector.constants import ClientFlag 
+from __future__ import print_function
+import mysql.connector
+from mysql.connector.constants import ClientFlag
 
-import sys 
+import sys
 import time
 
 # -*- coding: utf-8 -*-
 
 # Se definen los parametros de la conexion con la base de datos
-#DB_HOST = 'localhost' 
-#DB_USER = 'sergio' 
-#DB_PASS = '123456' 
-#DB_NAME = 'parking' 
+#DB_HOST = 'localhost'
+#DB_USER = 'sergio'
+#DB_PASS = '123456'
+#DB_NAME = 'parking'
 
 
-#  Se crea la funcion que realiza la consulta 
-def run_query(query=''): 
-    
-    config = { 
-	    'user': 'root', 
-	    'password': '123456', 
-	    'host': '127.0.0.1', 
-	    'client_flags': [ClientFlag.SSL], 
-	    'ssl_ca': '/etc/mysql/ca.pem', 
-	    'ssl_cert': '/etc/mysql/client-cert.pem', 
-	    'ssl_key': '/etc/mysql/client-key.pem', 
+#  Se crea la funcion que realiza la consulta
+def run_query(query=''):
+
+    config = {
+	    'user': 'pcawg',
+	    'password': '123456',
+	    'host': '10.42.0.1',
+	    'client_flags': [ClientFlag.SSL],
+	    'ssl_ca': '/etc/mysql/ca.pem',
+	    'ssl_cert': '/etc/mysql/client-cert.pem',
+	    'ssl_key': '/etc/mysql/client-key.pem',
     }
 
-    #datos = [DB_HOST, DB_USER, DB_PASS, DB_NAME] 
- 
-    #conn = MySQLdb.connect(*datos) # Conectar a la base de datos 
-    #cursor = conn.cursor()         # Crear un cursor 
-    #cursor.execute(query)          # Ejecutar una consulta 
+    #datos = [DB_HOST, DB_USER, DB_PASS, DB_NAME]
+
+    #conn = MySQLdb.connect(*datos) # Conectar a la base de datos
+    #cursor = conn.cursor()         # Crear un cursor
+    #cursor.execute(query)          # Ejecutar una consulta
 
     conn = mysql.connector.connect(**config)	# Conectar a la base de datos
     cursor = conn.cursor(buffered=True) 	# Crear el cursor
-    cursor.execute(query)			# Ejecutar una consulta	
-    
-    if query.upper().startswith('SELECT'): 
-        data = cursor.fetchall()   # Traer los resultados de un select 
-    else: 
-        conn.commit()              # Hacer efectiva la escritura de datos 
-        data = None 
- 
-    cursor.close()                 # Cerrar el cursor 
-    conn.close()                   # Cerrar la conexion 
+    cursor.execute(query)			# Ejecutar una consulta
+
+    if query.upper().startswith('SELECT'):
+        data = cursor.fetchall()   # Traer los resultados de un select
+    else:
+        conn.commit()              # Hacer efectiva la escritura de datos
+        data = None
+
+    cursor.close()                 # Cerrar el cursor
+    conn.close()                   # Cerrar la conexion
 
     return data
 
@@ -73,7 +73,7 @@ def getDirecciones():
 #DEBUG
 print(str(getDirecciones()))
 
-def regMAC(MAC):
+def regMACEntrada(MAC):
 	# Registramos como que el vehiculo se encuentra dentro del parking
 	run_query("UPDATE parking.Usuarios SET dentro = 1 WHERE MAC = '"+MAC+"'")
 
@@ -83,19 +83,41 @@ def regMAC(MAC):
 	datetime = day+' '+t
 	#print(t)
 	#print(day)
-	
+
 	print("Fecha/Hora: "+datetime+"\n\n")
 
-	cc = run_query("SELECT idUsuario FROM parking.Usuarios WHERE MAC='"+MAC+"'")	
+	cc = run_query("SELECT idUsuario FROM parking.Usuarios WHERE MAC='"+MAC+"'")
+	cc = cc[0]
+	idus = str(cc[0])
+	query1 = "INSERT INTO parking.time_table (time, idUsuario) VALUES ('"+datetime+"','"+idus+"');"
+	l = run_query(query1)
+
+def regMACSalida(MAC):
+	# Registramos como que el vehiculo se encuentra dentro del parking
+	run_query("UPDATE parking.Usuarios SET dentro = 0 WHERE MAC = '"+MAC+"'")
+
+	# Registramos la hora en la otra tabla y el usuario asociado
+	t = time.strftime("%H:%M:%S") #Formato de 24 horas
+	day = time.strftime("%Y-%m-%d")#yyyy-mm--dd
+	datetime = day+' '+t
+	#print(t)
+	#print(day)
+
+	print("Fecha/Hora: "+datetime+"\n\n")
+
+	cc = run_query("SELECT idUsuario FROM parking.Usuarios WHERE MAC='"+MAC+"'")
 	cc = cc[0]
 	idus = str(cc[0])
 	query1 = "INSERT INTO parking.time_table (time, idUsuario) VALUES ('"+datetime+"','"+idus+"');"
 	l = run_query(query1)
 
 #DEBUG
-regMAC("MAC_4")
+regMACEntrada("MAC_4")
+
+time.sleep(10)
+
+regMACSalida("MAC_4")
 
 # b es una tupla, para acceder a los datos es: b[0], b[1], b[2], ...
 # En caso de que no exista ese registro de MAC en la base de datos,
 # la variable b esta vacia.
-
